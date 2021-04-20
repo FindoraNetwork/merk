@@ -343,6 +343,15 @@ impl Merk {
         self.db.raw_iterator_cf(internal_cf)
     }
 
+    pub fn iter_opt(&self, mode: rocksdb::IteratorMode, readopts: rocksdb::ReadOptions) -> rocksdb::DBIterator {
+        self.db.iterator_opt(mode, readopts)
+    }
+
+    pub fn iter_opt_aux(&self, mode: rocksdb::IteratorMode, readopts: rocksdb::ReadOptions) -> rocksdb::DBIterator {
+        let aux_cf = self.db.cf_handle("aux").unwrap();
+        self.db.iterator_cf_opt(aux_cf, readopts, mode)
+    }
+
     fn source(&self) -> MerkSource {
         MerkSource { db: &self.db }
     }
@@ -431,6 +440,7 @@ mod test {
     use super::Merk;
     use crate::test_utils::*;
     use crate::Op;
+    use crate::tree;
     use std::thread;
 
     // TODO: Close and then reopen test
@@ -573,6 +583,64 @@ mod test {
 
         merk.commit(&[]).expect("commit failed");
         assert!(merk.get(&[3, 3, 3]).unwrap().is_none());
+    }
+
+    #[test]
+    fn iter_opt_range() {
+        let path = thread::current().name().unwrap().to_owned();
+        let mut merk = TempMerk::open(path).expect("failed to open merk");
+
+        // apply data
+        merk.apply(
+            &[
+                (b"k10".to_vec(), Op::Put(b"v10".to_vec())),
+                (b"k20".to_vec(), Op::Put(b"v20".to_vec())),
+                (b"k30".to_vec(), Op::Put(b"v30".to_vec())),
+                (b"k40".to_vec(), Op::Put(b"v40".to_vec())),
+                (b"k50".to_vec(), Op::Put(b"v50".to_vec())),
+            ]
+        )
+        .unwrap();
+
+        // commit with aux
+        merk.commit(
+            &[
+                (b"k11".to_vec(), Op::Put(b"v11".to_vec())),
+                (b"k21".to_vec(), Op::Put(b"v21".to_vec())),
+                (b"k31".to_vec(), Op::Put(b"v31".to_vec())),
+                (b"k41".to_vec(), Op::Put(b"v41".to_vec())),
+                (b"k51".to_vec(), Op::Put(b"v51".to_vec())),
+            ]
+        ).unwrap();
+
+        // iterate on range ["k20", "k50")
+        let mut readopts = rocksdb::ReadOptions::default();
+        readopts.set_iterate_lower_bound(b"k20".to_vec());
+        readopts.set_iterate_upper_bound(b"k50".to_vec());
+
+        let iter = merk.iter_opt(rocksdb::IteratorMode::Start, readopts);
+        let expected = vec![
+            (b"k20".to_vec(), b"v20".to_vec()), 
+            (b"k30".to_vec(), b"v30".to_vec()), 
+            (b"k40".to_vec(), b"v40".to_vec())];
+        let actual = iter.map(|(k, v) | {
+            let kv = tree::Tree::decode(k.to_vec(), &v);
+            (kv.key().to_vec(), kv.value().to_vec())
+        }).collect::<Vec<_>>();
+        assert_eq!(expected, actual);
+
+        // iterate aux on range ["k21", "k51")
+        let mut readopts_aux = rocksdb::ReadOptions::default();
+        readopts_aux.set_iterate_lower_bound(b"k21".to_vec());
+        readopts_aux.set_iterate_upper_bound(b"k51".to_vec());
+
+        let iter_aux = merk.iter_opt_aux(rocksdb::IteratorMode::Start, readopts_aux);
+        let expected_aux = vec![
+            (b"k21".to_vec(), b"v21".to_vec()), 
+            (b"k31".to_vec(), b"v31".to_vec()), 
+            (b"k41".to_vec(), b"v41".to_vec())];
+        let actual_aux = iter_aux.map(|(k, v) | (k.to_vec(), v.to_vec())).collect::<Vec<_>>();
+        assert_eq!(expected_aux, actual_aux);
     }
 
     #[test]
