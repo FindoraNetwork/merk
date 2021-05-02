@@ -1,6 +1,6 @@
 use std::collections::LinkedList;
 use std::path::{Path, PathBuf};
-use std::{cell::Cell, collections::HashSet};
+use std::{collections::HashSet};
 
 use failure::bail;
 use rocksdb::ColumnFamilyDescriptor;
@@ -13,7 +13,7 @@ const ROOT_KEY_KEY: [u8; 4] = *b"root";
 
 /// A handle to a Merkle key/value store backed by RocksDB.
 pub struct Merk {
-    pub(crate) tree: Cell<Option<Tree>>,
+    pub(crate) tree: Option<Tree>,
     pub(crate) db: rocksdb::DB,
     pub(crate) path: PathBuf,
     deleted_keys: HashSet<Vec<u8>>,
@@ -45,7 +45,7 @@ impl Merk {
         let tree = Merk::load_root_node_from_db(&db)?;
 
         Ok(Merk {
-            tree: Cell::new(tree),
+            tree: tree,
             db,
             path: path_buf,
             deleted_keys: Default::default(),
@@ -186,11 +186,10 @@ impl Merk {
         let maybe_walker = self
             .tree
             .take()
-            .take()
             .map(|tree| Walker::new(tree, self.source()));
 
         let (maybe_tree, mut deleted_keys) = Walker::apply_to(maybe_walker, batch)?;
-        self.tree.set(maybe_tree);
+        self.tree = maybe_tree;
         for key in deleted_keys {
             self.deleted_keys.insert(key);
         }
@@ -200,7 +199,7 @@ impl Merk {
 
     pub fn clear(&mut self) -> Result<()> {
         self.deleted_keys.clear();
-        self.tree.replace(Merk::load_root_node_from_db(&self.db)?);
+        self.tree = Merk::load_root_node_from_db(&self.db)?;
         Ok(())
     }
 
@@ -225,7 +224,7 @@ impl Merk {
     /// check adds some overhead, so if you are sure your batch is sorted and
     /// unique you can use the unsafe `prove_unchecked` for a small performance
     /// gain.
-    pub fn prove(&self, query: &[Vec<u8>]) -> Result<Vec<u8>> {
+    pub fn prove(&mut self, query: &[Vec<u8>]) -> Result<Vec<u8>> {
         // ensure keys in query are sorted and unique
         let mut maybe_prev_key = None;
         for key in query.iter() {
@@ -254,20 +253,19 @@ impl Merk {
     /// if they are not, there will be undefined behavior. For a safe version of
     /// this method which checks to ensure the batch is sorted and unique, see
     /// `prove`.
-    pub unsafe fn prove_unchecked(&self, query: &[Vec<u8>]) -> Result<Vec<u8>> {
-        self.use_tree_mut(|maybe_tree| {
-            let tree = match maybe_tree {
-                None => bail!("Cannot create proof for empty tree"),
-                Some(tree) => tree,
-            };
+    pub unsafe fn prove_unchecked(&mut self, query: &[Vec<u8>]) -> Result<Vec<u8>> {
+        let tree = match self.tree.as_mut() {
+            None => bail!("Cannot create proof for empty tree"),
+            Some(tree) => tree,
+        };
 
-            let mut ref_walker = RefWalker::new(tree, self.source());
-            let (proof, _) = ref_walker.create_proof(query)?;
+        let source = MerkSource { db: &self.db };
+        let mut ref_walker = RefWalker::new(tree, source);
+        let (proof, _) = ref_walker.create_proof(query)?;
 
-            let mut bytes = Vec::with_capacity(128);
-            encode_into(proof.iter(), &mut bytes);
-            Ok(bytes)
-        })
+        let mut bytes = Vec::with_capacity(128);
+        encode_into(proof.iter(), &mut bytes);
+        Ok(bytes)
     }
 
     pub fn flush(&self) -> Result<()> {
@@ -279,25 +277,26 @@ impl Merk {
         let aux_cf = self.db.cf_handle("aux").unwrap();
 
         let mut batch = rocksdb::WriteBatch::default();
-        let mut to_batch =
-            self.use_tree_mut(|maybe_tree| -> Result<Vec<(Vec<u8>, Option<Vec<u8>>)>> {
-                // TODO: concurrent commit
-                if let Some(tree) = maybe_tree {
-                    // TODO: configurable committer
-                    let mut committer = MerkCommitter::new(tree.height(), 1);
-                    tree.commit(&mut committer)?;
+        let mut res_batch: Result<Vec<(Vec<u8>, Option<Vec<u8>>)>> = match self.tree.as_mut() {
+            // TODO: concurrent commit
+            Some(tree) => {
+                // TODO: configurable committer
+                let mut committer = MerkCommitter::new(tree.height(), 1);
+                tree.commit(&mut committer)?;
 
-                    // update pointer to root node
-                    batch.put_cf(internal_cf, ROOT_KEY_KEY, tree.key());
+                // update pointer to root node
+                batch.put_cf(internal_cf, ROOT_KEY_KEY, tree.key());
 
-                    Ok(committer.batch)
-                } else {
-                    // empty tree, delete pointer to root
-                    batch.delete_cf(internal_cf, ROOT_KEY_KEY);
+                Ok(committer.batch)
+            }
+            None => {
+                // empty tree, delete pointer to root
+                batch.delete_cf(internal_cf, ROOT_KEY_KEY);
 
-                    Ok(vec![])
-                }
-            })?;
+                Ok(vec![])
+            }
+        };
+        let mut to_batch = res_batch?;
 
         // TODO: move this to MerkCommitter impl?
         for key in self.deleted_keys.drain() {
@@ -312,6 +311,8 @@ impl Merk {
             }
         }
 
+        // update aux cf
+        let aux_cf = self.db.cf_handle("aux").unwrap();
         for (key, value) in aux {
             match value {
                 Op::Put(value) => batch.put_cf(aux_cf, key, value),
@@ -328,13 +329,13 @@ impl Merk {
         Ok(())
     }
 
-    pub fn walk<T>(&self, f: impl FnOnce(Option<RefWalker<MerkSource>>) -> T) -> T {
+    pub fn walk<T>(&mut self, f: impl FnOnce(Option<RefWalker<MerkSource>>) -> T) -> T {
         let mut tree = self.tree.take();
         let maybe_walker = tree
             .as_mut()
             .map(|tree| RefWalker::new(tree, self.source()));
         let res = f(maybe_walker);
-        self.tree.set(tree);
+        self.tree = tree;
         res
     }
 
@@ -357,16 +358,16 @@ impl Merk {
     }
 
     fn use_tree<T>(&self, mut f: impl FnMut(Option<&Tree>) -> T) -> T {
-        let tree = self.tree.take();
-        let res = f(tree.as_ref());
-        self.tree.set(tree);
+        //let tree = self.tree.take();
+        let res = f(self.tree.as_ref());
+        //self.tree.set(tree);
         res
     }
 
-    fn use_tree_mut<T>(&self, mut f: impl FnMut(Option<&mut Tree>) -> T) -> T {
-        let mut tree = self.tree.take();
-        let res = f(tree.as_mut());
-        self.tree.set(tree);
+    fn use_tree_mut<T>(&mut self, mut f: impl FnMut(Option<&mut Tree>) -> T) -> T {
+        //let mut tree = self.tree.take();
+        let res = f(self.tree.as_mut());
+        //self.tree.set(tree);
         res
     }
 }
