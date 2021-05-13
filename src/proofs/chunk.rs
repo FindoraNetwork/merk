@@ -164,7 +164,7 @@ mod tests {
 
         let root_node = merk.tree.take();
         let root_key = root_node.as_ref().unwrap().key().to_vec();
-        merk.tree.set(root_node);
+        merk.tree = root_node;
 
         let mut iter = merk.db.raw_iterator();
         iter.seek_to_first();
