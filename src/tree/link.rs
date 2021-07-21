@@ -3,6 +3,8 @@ use std::io::{Read, Write};
 
 use ed::{Decode, Encode, Result, Terminated};
 
+use crate::HASH_LENGTH;
+
 use super::hash::Hash;
 use super::Tree;
 
@@ -196,9 +198,9 @@ impl Encode for Link {
         debug_assert!(self.key().len() < 256, "Key length must be less than 256");
 
         Ok(match self {
-            Link::Pruned { key, .. } => 1 + key.len() + 20 + 2,
+            Link::Pruned { key, .. } => 1 + key.len() + HASH_LENGTH + 2,
             Link::Modified { .. } => panic!("No encoding for Link::Modified"),
-            Link::Stored { tree, .. } => 1 + tree.key().len() + 20 + 2,
+            Link::Stored { tree, .. } => 1 + tree.key().len() + HASH_LENGTH + 2,
         })
     }
 }
@@ -370,7 +372,7 @@ mod test {
             child_heights: (123, 124),
             hash: [55; HASH_LENGTH],
         };
-        assert_eq!(link.encoding_length().unwrap(), 26);
+        assert_eq!(link.encoding_length().unwrap(), 38);
 
         let mut bytes = vec![];
         link.encode_into(&mut bytes).unwrap();
