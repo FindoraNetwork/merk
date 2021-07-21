@@ -126,24 +126,24 @@ impl<'a, S> RefWalker<'a, S>
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::tree::{Tree, PanicSource, RefWalker};
+    use crate::{HASH_LENGTH, tree::{Tree, PanicSource, RefWalker}};
 
     fn make_3_node_tree() -> Tree {
         Tree::from_fields(
-            vec![5], vec![5], [105; 20],
+            vec![5], vec![5], [105; HASH_LENGTH],
             Some(Link::Stored {
                 child_heights: (0, 0),
-                hash: [3; 20],
+                hash: [3; HASH_LENGTH],
                 tree: Tree::from_fields(
-                    vec![3], vec![3], [103; 20],
+                    vec![3], vec![3], [103; HASH_LENGTH],
                     None, None
                 )
             }),
             Some(Link::Stored {
                 child_heights: (0, 0),
-                hash: [7; 20],
+                hash: [7; HASH_LENGTH],
                 tree: Tree::from_fields(
-                    vec![7], vec![7], [107; 20],
+                    vec![7], vec![7], [107; HASH_LENGTH],
                     None, None
                 )
             })
@@ -160,10 +160,10 @@ mod test {
             .expect("create_proof errored");
 
         let mut iter = proof.iter();
-        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([3; 20]))));
-        assert_eq!(iter.next(), Some(&Op::Push(Node::KVHash([105; 20]))));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([3; HASH_LENGTH]))));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KVHash([105; HASH_LENGTH]))));
         assert_eq!(iter.next(), Some(&Op::Parent));
-        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([7; 20]))));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([7; HASH_LENGTH]))));
         assert_eq!(iter.next(), Some(&Op::Child));
         assert!(iter.next().is_none());
         assert_eq!(absence, (false, false));
@@ -179,10 +179,10 @@ mod test {
             .expect("create_proof errored");
 
         let mut iter = proof.iter();
-        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([3; 20]))));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([3; HASH_LENGTH]))));
         assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![5], vec![5]))));
         assert_eq!(iter.next(), Some(&Op::Parent));
-        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([7; 20]))));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([7; HASH_LENGTH]))));
         assert_eq!(iter.next(), Some(&Op::Child));
         assert!(iter.next().is_none());
         assert_eq!(absence, (false, false));
@@ -199,9 +199,9 @@ mod test {
 
         let mut iter = proof.iter();
         assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![3], vec![3]))));
-        assert_eq!(iter.next(), Some(&Op::Push(Node::KVHash([105; 20]))));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KVHash([105; HASH_LENGTH]))));
         assert_eq!(iter.next(), Some(&Op::Parent));
-        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([7; 20]))));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([7; HASH_LENGTH]))));
         assert_eq!(iter.next(), Some(&Op::Child));
         assert!(iter.next().is_none());
         assert_eq!(absence, (false, false));
@@ -218,7 +218,7 @@ mod test {
 
         let mut iter = proof.iter();
         assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![3], vec![3]))));
-        assert_eq!(iter.next(), Some(&Op::Push(Node::KVHash([105; 20]))));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KVHash([105; HASH_LENGTH]))));
         assert_eq!(iter.next(), Some(&Op::Parent));
         assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![7], vec![7]))));
         assert_eq!(iter.next(), Some(&Op::Child));
@@ -255,8 +255,8 @@ mod test {
             .expect("create_proof errored");
 
         let mut iter = proof.iter();
-        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([3; 20]))));
-        assert_eq!(iter.next(), Some(&Op::Push(Node::KVHash([105; 20]))));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([3; HASH_LENGTH]))));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KVHash([105; HASH_LENGTH]))));
         assert_eq!(iter.next(), Some(&Op::Parent));
         assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![7], vec![7]))));
         assert_eq!(iter.next(), Some(&Op::Child));
@@ -274,7 +274,7 @@ mod test {
             .expect("create_proof errored");
 
         let mut iter = proof.iter();
-        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([3; 20]))));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([3; HASH_LENGTH]))));
         assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![5], vec![5]))));
         assert_eq!(iter.next(), Some(&Op::Parent));
         assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![7], vec![7]))));
@@ -286,30 +286,30 @@ mod test {
     #[test]
     fn doc_proof() {
         let mut tree = Tree::from_fields(
-            vec![5], vec![5], [105; 20],
+            vec![5], vec![5], [105; HASH_LENGTH],
             Some(Link::Stored {
                 child_heights: (0, 0),
-                hash: [2; 20],
+                hash: [2; HASH_LENGTH],
                 tree: Tree::from_fields(
-                    vec![2], vec![2], [102; 20],
+                    vec![2], vec![2], [102; HASH_LENGTH],
                     Some(Link::Stored {
                         child_heights: (0, 0),
-                        hash: [1; 20],
+                        hash: [1; HASH_LENGTH],
                         tree: Tree::from_fields(
-                            vec![1], vec![1], [101; 20],
+                            vec![1], vec![1], [101; HASH_LENGTH],
                             None, None
                         )
                     }),
                     Some(Link::Stored {
                         child_heights: (0, 0),
-                        hash: [4; 20],
+                        hash: [4; HASH_LENGTH],
                         tree: Tree::from_fields(
-                            vec![4], vec![4], [104; 20],
+                            vec![4], vec![4], [104; HASH_LENGTH],
                             Some(Link::Stored {
                                 child_heights: (0, 0),
-                                hash: [3; 20],
+                                hash: [3; HASH_LENGTH],
                                 tree: Tree::from_fields(
-                                    vec![3], vec![3], [103; 20],
+                                    vec![3], vec![3], [103; HASH_LENGTH],
                                     None, None
                                 )
                             }),
@@ -320,27 +320,27 @@ mod test {
             }),
             Some(Link::Stored {
                 child_heights: (0, 0),
-                hash: [9; 20],
+                hash: [9; HASH_LENGTH],
                 tree: Tree::from_fields(
-                    vec![9], vec![9], [109; 20],
+                    vec![9], vec![9], [109; HASH_LENGTH],
                     Some(Link::Stored {
                         child_heights: (0, 0),
-                        hash: [7; 20],
+                        hash: [7; HASH_LENGTH],
                         tree: Tree::from_fields(
-                            vec![7], vec![7], [107; 20],
+                            vec![7], vec![7], [107; HASH_LENGTH],
                             Some(Link::Stored {
                                 child_heights: (0, 0),
-                                hash: [6; 20],
+                                hash: [6; HASH_LENGTH],
                                 tree: Tree::from_fields(
-                                    vec![6], vec![6], [106; 20],
+                                    vec![6], vec![6], [106; HASH_LENGTH],
                                     None, None
                                 )
                             }),
                             Some(Link::Stored {
                                 child_heights: (0, 0),
-                                hash: [8; 20],
+                                hash: [8; HASH_LENGTH],
                                 tree: Tree::from_fields(
-                                    vec![8], vec![8], [108; 20],
+                                    vec![8], vec![8], [108; HASH_LENGTH],
                                     None, None
                                 )
                             })
@@ -348,14 +348,14 @@ mod test {
                     }),
                     Some(Link::Stored {
                         child_heights: (0, 0),
-                        hash: [11; 20],
+                        hash: [11; HASH_LENGTH],
                         tree: Tree::from_fields(
-                            vec![11], vec![11], [111; 20],
+                            vec![11], vec![11], [111; HASH_LENGTH],
                             Some(Link::Stored {
                                 child_heights: (0, 0),
-                                hash: [10; 20],
+                                hash: [10; HASH_LENGTH],
                                 tree: Tree::from_fields(
-                                    vec![10], vec![10], [110; 20],
+                                    vec![10], vec![10], [110; HASH_LENGTH],
                                     None, None
                                 )
                             }),
@@ -382,15 +382,18 @@ mod test {
         assert_eq!(iter.next(), Some(&Op::Push(Node::KV(vec![4], vec![4]))));
         assert_eq!(iter.next(), Some(&Op::Parent));
         assert_eq!(iter.next(), Some(&Op::Child));
-        assert_eq!(iter.next(), Some(&Op::Push(Node::KVHash([105; 20]))));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::KVHash([105; HASH_LENGTH]))));
         assert_eq!(iter.next(), Some(&Op::Parent));
-        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([9; 20]))));
+        assert_eq!(iter.next(), Some(&Op::Push(Node::Hash([9; HASH_LENGTH]))));
         assert_eq!(iter.next(), Some(&Op::Child));
         assert!(iter.next().is_none());
         assert_eq!(absence, (false, false));
 
         let mut bytes = vec![];
         encode_into(proof.iter(), &mut bytes);
-        assert_eq!(bytes, vec![3, 1, 1, 0, 1, 1, 3, 1, 2, 0, 1, 2, 16, 3, 1, 3, 0, 1, 3, 3, 1, 4, 0, 1, 4, 16, 17, 2, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 16, 1, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 17]);
+        assert_eq!(bytes, vec![3, 1, 1, 0, 1, 1, 3, 1, 2, 0, 1, 2, 16, 3, 1, 3, 0, 1, 3, 3, 1, 4, 0, 1, 4, 16, 17, 2,
+            105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105,
+            105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 16, 1, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+            9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 17]);
     }
 }

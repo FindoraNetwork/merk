@@ -350,10 +350,10 @@ mod test {
         ];
         let tree = Tree::from_fields(
             b"foo".to_vec(), b"bar".to_vec(),
-            [123; 20],
+            [123; HASH_LENGTH],
             None,
             Some(Link::Stored {
-                hash: [123; 20],
+                hash: [123; HASH_LENGTH],
                 child_heights: (0, 0),
                 tree: Tree::new(b"foo2".to_vec(), b"bar2".to_vec())
             })
