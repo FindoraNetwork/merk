@@ -3,7 +3,7 @@ use std::convert::TryFrom;
 use blake2_rfc::blake2b::Blake2b;
 
 /// The length of a `Hash` (in bytes).
-pub const HASH_LENGTH: usize = 20;
+pub const HASH_LENGTH: usize = 32;
 
 /// A zero-filled `Hash`.
 pub const NULL_HASH: Hash = [0; HASH_LENGTH];

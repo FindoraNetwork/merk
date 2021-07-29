@@ -3,6 +3,8 @@ use std::io::{Read, Write};
 
 use ed::{Decode, Encode, Result, Terminated};
 
+use crate::HASH_LENGTH;
+
 use super::hash::Hash;
 use super::Tree;
 
@@ -196,9 +198,9 @@ impl Encode for Link {
         debug_assert!(self.key().len() < 256, "Key length must be less than 256");
 
         Ok(match self {
-            Link::Pruned { key, .. } => 1 + key.len() + 20 + 2,
+            Link::Pruned { key, .. } => 1 + key.len() + HASH_LENGTH + 2,
             Link::Modified { .. } => panic!("No encoding for Link::Modified"),
-            Link::Stored { tree, .. } => 1 + tree.key().len() + 20 + 2,
+            Link::Stored { tree, .. } => 1 + tree.key().len() + HASH_LENGTH + 2,
         })
     }
 }
@@ -264,6 +266,8 @@ fn read_u8<R: Read>(mut input: R) -> Result<u8> {
 
 #[cfg(test)]
 mod test {
+    use crate::HASH_LENGTH;
+
     use super::super::hash::NULL_HASH;
     use super::super::Tree;
     use super::*;
@@ -320,7 +324,7 @@ mod test {
         assert!(!pruned.is_modified());
         assert!(!pruned.is_stored());
         assert!(pruned.tree().is_none());
-        assert_eq!(pruned.hash(), &[0; 20]);
+        assert_eq!(pruned.hash(), &[0; HASH_LENGTH]);
         assert_eq!(pruned.height(), 1);
         assert!(pruned.into_pruned().is_pruned());
 
@@ -334,7 +338,7 @@ mod test {
         assert!(!stored.is_modified());
         assert!(stored.is_stored());
         assert!(stored.tree().is_some());
-        assert_eq!(stored.hash(), &[0; 20]);
+        assert_eq!(stored.hash(), &[0; HASH_LENGTH]);
         assert_eq!(stored.height(), 1);
         assert!(stored.into_pruned().is_pruned());
     }
@@ -366,9 +370,9 @@ mod test {
         let link = Link::Pruned {
             key: vec![1, 2, 3],
             child_heights: (123, 124),
-            hash: [55; 20],
+            hash: [55; HASH_LENGTH],
         };
-        assert_eq!(link.encoding_length().unwrap(), 26);
+        assert_eq!(link.encoding_length().unwrap(), 38);
 
         let mut bytes = vec![];
         link.encode_into(&mut bytes).unwrap();
@@ -376,7 +380,7 @@ mod test {
             bytes,
             vec![
                 3, 1, 2, 3, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55,
-                55, 55, 123, 124
+                55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 123, 124
             ]
         );
     }
@@ -387,7 +391,7 @@ mod test {
         let link = Link::Pruned {
             key: vec![123; 300],
             child_heights: (123, 124),
-            hash: [55; 20],
+            hash: [55; HASH_LENGTH],
         };
         let mut bytes = vec![];
         link.encode_into(&mut bytes).unwrap();

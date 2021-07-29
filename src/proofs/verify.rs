@@ -233,7 +233,8 @@ mod test {
         let mut bytes = vec![];
         encode_into(proof.iter(), &mut bytes);
 
-        let expected_hash = [65, 23, 96, 10, 165, 42, 240, 100, 206, 125, 192, 81, 44, 89, 119, 39, 35, 215, 211, 24];
+        let expected_hash = [183, 241, 105, 164, 170, 191, 240, 70, 240, 64, 255, 45, 100, 111, 247, 122, 53, 153, 216, 173,
+            32, 35, 98, 96, 71, 252, 140, 233, 161, 103, 113, 59];
         let result = verify(bytes.as_slice(), keys.as_slice(), expected_hash)
             .expect("verify failed");
         assert_eq!(result, expected_result);

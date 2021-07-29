@@ -33,18 +33,20 @@ impl Tree {
 
 #[cfg(test)]
 mod tests {
+    use crate::HASH_LENGTH;
+
     use super::super::Link;
     use super::*;
 
     #[test]
     fn encode_leaf_tree() {
-        let tree = Tree::from_fields(vec![0], vec![1], [55; 20], None, None);
-        assert_eq!(tree.encoding_length(), 23);
+        let tree = Tree::from_fields(vec![0], vec![1], [55; HASH_LENGTH], None, None);
+        assert_eq!(tree.encoding_length(), HASH_LENGTH+3);
         assert_eq!(
             tree.encode(),
             vec![
                 0, 0, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55,
-                55, 1,
+                55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 1,
             ]
         );
     }
@@ -55,7 +57,7 @@ mod tests {
         let tree = Tree::from_fields(
             vec![0],
             vec![1],
-            [55; 20],
+            [55; HASH_LENGTH],
             Some(Link::Modified {
                 pending_writes: 1,
                 child_heights: (123, 124),
@@ -71,9 +73,9 @@ mod tests {
         let tree = Tree::from_fields(
             vec![0],
             vec![1],
-            [55; 20],
+            [55; HASH_LENGTH],
             Some(Link::Stored {
-                hash: [66; 20],
+                hash: [66; HASH_LENGTH],
                 child_heights: (123, 124),
                 tree: Tree::new(vec![2], vec![3]),
             }),
@@ -83,8 +85,9 @@ mod tests {
             tree.encode(),
             vec![
                 1, 1, 2, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66,
-                66, 66, 123, 124, 0, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55,
-                55, 55, 55, 55, 55, 1
+                66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 123, 124, 0, 55, 55, 55,
+                55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55,
+                55, 55, 55, 55, 55, 55, 55, 55, 55, 1
             ]
         );
     }
@@ -94,21 +97,22 @@ mod tests {
         let tree = Tree::from_fields(
             vec![0],
             vec![1],
-            [55; 20],
+            [55; HASH_LENGTH],
             Some(Link::Pruned {
-                hash: [66; 20],
+                hash: [66; HASH_LENGTH],
                 child_heights: (123, 124),
                 key: vec![2],
             }),
             None,
         );
-        assert_eq!(tree.encoding_length(), 47);
+        assert_eq!(tree.encoding_length(), 71);
         assert_eq!(
             tree.encode(),
             vec![
                 1, 1, 2, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66,
-                66, 66, 123, 124, 0, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55,
-                55, 55, 55, 55, 55, 1
+                66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 123, 124, 0, 55, 55, 55,
+                55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55,
+                55, 55, 55, 55, 55, 55, 55, 55, 55, 1
             ]
         );
     }
@@ -116,7 +120,8 @@ mod tests {
     #[test]
     fn decode_leaf_tree() {
         let bytes = vec![
-            0, 0, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 1,
+            0, 0, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55,
+            55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 1,
         ];
         let tree = Tree::decode(vec![0], bytes.as_slice());
         assert_eq!(tree.key(), &[0]);
@@ -127,8 +132,9 @@ mod tests {
     fn decode_pruned_tree() {
         let bytes = vec![
             1, 1, 2, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66,
-            66, 123, 124, 0, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55,
-            55, 55, 55, 1,
+            66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 123, 124, 0, 55, 55, 55, 55, 55,
+            55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55,
+            55, 55, 55, 55, 55, 55, 1,
         ];
         let tree = Tree::decode(vec![0], bytes.as_slice());
         assert_eq!(tree.key(), &[0]);
@@ -141,7 +147,7 @@ mod tests {
         {
             assert_eq!(*key, [2]);
             assert_eq!(*child_heights, (123 as u8, 124 as u8));
-            assert_eq!(*hash, [66 as u8; 20]);
+            assert_eq!(*hash, [66 as u8; HASH_LENGTH]);
         } else {
             panic!("Expected Link::Pruned");
         }
