@@ -329,6 +329,12 @@ impl Merk {
         Ok(())
     }
 
+    pub fn snapshot<P: AsRef<Path>>(&self, path: P) -> Result<()> {
+        let cp = rocksdb::checkpoint::Checkpoint::new(&self.db)?;
+        cp.create_checkpoint(&path)?;
+        Ok(())
+    }
+
     pub fn walk<T>(&mut self, f: impl FnOnce(Option<RefWalker<MerkSource>>) -> T) -> T {
         let mut tree = self.tree.take();
         let maybe_walker = tree
